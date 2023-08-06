@@ -1,6 +1,6 @@
 from typing import List
 import os
-from pydub import AudioSegment, scipy_effects
+from pydub import AudioSegment, effects
 from pydub.silence import detect_nonsilent
 import itertools
 from moviepy.editor import VideoFileClip, concatenate_videoclips, AudioFileClip
@@ -135,8 +135,8 @@ def normalize_audio(audio_path, target_dBFS=-15.0):
 
 
 def compress_audio(audio_path, target_bitrate="64k"):
-    audio = AudioSegment.from_file(audio_path, format="wav")
-    compressed_audio = audio.set_frame_rate(44100).set_channels(2).set_sample_width(2)
+    audio: AudioSegment = AudioSegment.from_file(audio_path, format="wav")
+    compressed_audio = effects.compress_dynamic_range(audio, threshold=-12, attack=200, release=1000, ratio=2)
     compressed_audio.export(audio_path, format="wav", bitrate=target_bitrate)
 
 
