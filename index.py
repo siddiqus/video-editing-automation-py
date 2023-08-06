@@ -5,6 +5,7 @@ from pydub.silence import detect_nonsilent
 import itertools
 from moviepy.editor import VideoFileClip, concatenate_videoclips, AudioFileClip
 import logging
+import argparse
 
 # Configure the logging format
 logging.basicConfig(
@@ -108,10 +109,9 @@ def remove_silence_from_video(
         # Clean up temporary audio file
         logging.info("cleaning up")
         video_clip.audio.reader.close_proc()
-        video_clip.close()
-        final_clip.reader.close_proc()
         video_clip.reader.close()
         final_clip.close()
+        video_clip.close()
     except Exception as error:
         print(error)
     os.remove(audio_file)
@@ -122,23 +122,35 @@ def extract_audio_from_video(video_path, audio_path):
     audio = video.audio
     audio.write_audiofile(audio_path)
 
+    video.audio.reader.close_proc()
     audio.close()
     video.reader.close()
     video.close()
 
-
-def normalize_audio(audio_path, target_dBFS=-15.0):
-    audio = AudioSegment.from_file(audio_path, format="wav")
+def normalize_audio(audio_path, target_dBFS=-20.0):
+    audio: AudioSegment = AudioSegment.from_file(audio_path, format="wav")
     change_in_dBFS = target_dBFS - audio.dBFS
     normalized_audio = audio.apply_gain(change_in_dBFS)
     normalized_audio.export(audio_path, format="wav")
-
 
 def compress_audio(audio_path, target_bitrate="64k"):
     audio: AudioSegment = AudioSegment.from_file(audio_path, format="wav")
     compressed_audio = effects.compress_dynamic_range(audio, threshold=-12, attack=200, release=1000, ratio=2)
     compressed_audio.export(audio_path, format="wav", bitrate=target_bitrate)
 
+def quick_eq(audio_path):
+    audio: AudioSegment = AudioSegment.from_file(audio_path, format="wav")
+    
+    # 1. high pass filter 120
+    audio = audio.high_pass_filter(120)  # Adjust the frequency as needed
+    
+    # 2. boost presence -> gentle boost, 2k to 5k hz
+    
+    # 3. reduce harshness -> gentle cut for 6k to 10k
+    # 4. reduce boxiness -> gentle cut 300-500 hz
+
+    audio.export(audio_path, format="wav")
+    
 
 def replace_audio_in_video(video_path, new_audio_path, output_video_path):
     video = VideoFileClip(video_path)
@@ -154,9 +166,9 @@ def replace_audio_in_video(video_path, new_audio_path, output_video_path):
 def eq_audio(audio_path):
     # Load the audio file
     audio = AudioSegment.from_file(audio_path)
-
+    
     # High-Pass Filter (remove low-frequency noise)
-    audio = audio.high_pass_filter(100)  # Adjust the frequency as needed
+    audio = audio.high_pass_filter(120)  # Adjust the frequency as needed
 
     # Low Shelf Filter (add warmth)
     # audio = audio.low_shelf(gain=3.0, frequency=100)  # Adjust gain and frequency as needed
@@ -268,6 +280,8 @@ def improve_audio(video_path, output_video_path):
     logging.info("compressing audio")
     compress_audio(audio_path)
 
+    quick_eq(audio_path)
+
     # logging.info('normalize loudness in audio')
     # normalize_loudness(audio_path)
 
@@ -291,4 +305,14 @@ def remove_silence_and_normalize(input_video_file):
 
 
 if __name__ == "__main__":
-    remove_silence_and_normalize("videos/unit-testing/raw2.mp4")
+    parser = argparse.ArgumentParser(description="A CLI to remove silence and enhance audio in a video")
+    
+    parser.add_argument("-p", "--path", help="Full path to video file")
+
+    args = parser.parse_args()
+
+    if not args.path or not str(args.path).strip():
+        logging.error('filepath not provided!\nRun script with -p argument e.g. "python index.py -p /full/path/to/file.mp4"')
+        exit(1)        
+
+    remove_silence_and_normalize("videos/raw3.mp4")
