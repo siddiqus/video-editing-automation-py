@@ -315,4 +315,4 @@ if __name__ == "__main__":
         logging.error('filepath not provided!\nRun script with -p argument e.g. "python index.py -p /full/path/to/file.mp4"')
         exit(1)        
 
-    remove_silence_and_normalize("videos/raw3.mp4")
+    remove_silence_and_normalize(args.path)
